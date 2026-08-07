@@ -1,12 +1,14 @@
 pipeline {
     agent any
 
-    environment {
-        IMAGE_NAME = "edwinaabah/cicd-automation"
-        IMAGE_TAG  = "build-${BUILD_NUMBER}"
+    parameters {
+        string(name: 'IMAGE_NAME', defaultValue: 'your-dockerhub-username/cicd-automation', description: 'DockerHub image name')
+        string(name: 'APP_SERVER_HOST', defaultValue: 'app-server.example.com', description: 'App server SSH host (user@host)')
+        string(name: 'SNS_TOPIC_ARN', defaultValue: 'arn:aws:sns:REGION:ACCOUNT_ID:JenkinsPipelineNotifications', description: 'SNS topic ARN for pipeline notifications')
+    }
 
-        // SNS Topic ARN
-        SNS_TOPIC_ARN = "arn:aws:sns:eu-central-1:506993645576:JenkinsPipelineNotifications"
+    environment {
+        IMAGE_TAG = "build-${BUILD_NUMBER}"
     }
 
     stages {
@@ -19,7 +21,7 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh "docker build --pull -t ${IMAGE_NAME}:${IMAGE_TAG} ."
+                sh "docker build --pull -t ${params.IMAGE_NAME}:${IMAGE_TAG} ."
             }
         }
 
@@ -33,7 +35,7 @@ pipeline {
                     sh '''
                         echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
                     '''
-                    sh "docker push ${IMAGE_NAME}:${IMAGE_TAG}"
+                    sh "docker push ${params.IMAGE_NAME}:${IMAGE_TAG}"
                 }
             }
         }
@@ -42,11 +44,11 @@ pipeline {
             steps {
                 sshagent(['app-server-ssh-key']) {
                     sh """
-                        ssh -o StrictHostKeyChecking=no ubuntu@63.178.45.75 '
-                            docker pull ${IMAGE_NAME}:${IMAGE_TAG} &&
+                        ssh -o StrictHostKeyChecking=no ${params.APP_SERVER_HOST} '
+                            docker pull ${params.IMAGE_NAME}:${IMAGE_TAG} &&
                             docker stop app || true &&
                             docker rm app || true &&
-                            docker run -d --restart unless-stopped --name app -p 80:80 ${IMAGE_NAME}:${IMAGE_TAG}
+                            docker run -d --restart unless-stopped --name app -p 80:80 ${params.IMAGE_NAME}:${IMAGE_TAG}
                         '
                     """
                 }
@@ -57,7 +59,7 @@ pipeline {
             steps {
                 sh """
                     aws sns publish \
-                        --topic-arn "${SNS_TOPIC_ARN}" \
+                        --topic-arn "${params.SNS_TOPIC_ARN}" \
                         --message "Deployment successful for Build #${BUILD_NUMBER}"
                 """
             }
@@ -68,7 +70,7 @@ pipeline {
         failure {
             sh """
                 aws sns publish \
-                    --topic-arn "${SNS_TOPIC_ARN}" \
+                    --topic-arn "${params.SNS_TOPIC_ARN}" \
                     --message "Deployment failed for Build #${BUILD_NUMBER}"
             """
         }

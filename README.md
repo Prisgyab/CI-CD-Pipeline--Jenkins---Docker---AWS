@@ -156,6 +156,9 @@ Every run is logged in the Jenkins Console Output for full auditability.
 ```
 
 **4. Jenkinsfile (Pipeline as Code)**
+
+The real `Jenkinsfile` in this repo takes the image name, app server host, and SNS topic ARN as pipeline parameters (`params.IMAGE_NAME`, `params.APP_SERVER_HOST`, `params.SNS_TOPIC_ARN`) rather than hardcoding them, so no real infrastructure details are committed to a public repo. Set your real values when triggering a build in Jenkins, or as defaults in your own fork. Simplified illustration:
+
 ```groovy
 pipeline {
     agent any
@@ -194,9 +197,10 @@ Watch Jenkins pick it up automatically, build the image, push to DockerHub, depl
 
 ```
 .
-├── app/                  # Application source code
+├── app.py                # Flask application source
+├── requirements.txt      # Python dependencies
 ├── Dockerfile            # Container image definition
-├── Jenkinsfile           # Pipeline stages as code
+├── Jenkinsfile           # Pipeline stages as code (parameterized — no hardcoded infra details)
 └── README.md
 ```
 
